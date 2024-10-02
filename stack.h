@@ -3,13 +3,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "StackError.h"
 
 typedef double Stack_t;
 typedef int ErrorCode;
 
-const static int POISON = 0xB00B5;
-const static int STDCAPACITY = sizeof(Stack_t) * 64;
-const static int ALLOCATION_COEF = 2;
+const int POISON = 0xB00B5;
+const int STDCAPACITY = sizeof(Stack_t) * 64;
+const int ALLOCATION_COEF = 2;
+const int DECREASE_ALLOCATION_COEF = 4; 
 
 struct Stack
 {

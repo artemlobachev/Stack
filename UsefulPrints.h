@@ -17,11 +17,11 @@
 
 #define COLOR_PRINTF(COLOR, ...)    \
 do                                   \
- {                                    \ 
+ {                                    \
     printf(COLOR __VA_ARGS__);         \
     printf(RESET);                      \
- } while(0);                             \
+ } while(0)                             
 
-#define PRINT_STARS puts("******************************************\n")
+#define PRINT_STARS puts("******************************************")
 
 #endif
