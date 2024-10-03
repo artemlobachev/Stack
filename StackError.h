@@ -4,13 +4,12 @@
 #include "stack.h"
 
 #ifndef NDEBUG
-    #define STACK_ASSERT(SOMESTACK) StackAssert(SOMESTACK, StackVerif(SOMESTACK), __FILE__, __PRETTY_FUNCTION__, __LINE__)
-    #define STACK_DUMP(SOMESTACK) StackDump(SOMESTACK, __FILE__, __PRETTY_FUNCTION__, __LINE__)
-    #define PRINT_ERROR(SOMESTACK, ERROR) PrintError(SOMESTACK, ERROR, __FILE__, __PRETTY_FUNCTION__, __LINE__)
+    #define STACK_ASSERT(STACK) StackAssert(STACK, StackVerif(STACK), __FILE__, __PRETTY_FUNCTION__, __LINE__)
+    #define STACK_DUMP(STACK) StackDump(STACK, __FILE__, __PRETTY_FUNCTION__, __LINE__)
     #define ON_DEBUG(...) __VA_ARGS__                                                    
 #else
     #define ON_DEBUG(...)
-    #define STACK_DUMP(SOMESTACK);
+    #define STACK_DUMP(STACK)
 #endif
 
 enum Errors
@@ -22,11 +21,12 @@ enum Errors
     POP_EMPTY_STACK,
     REALLOC_ERROR,
     STACK_ELEMENT_NULL_ADDRESS,
-    SIZE_MORE_CAPACITY
+    SIZE_MORE_CAPACITY,
+    CAPACITY_TOO_BIG,
+    STACK_OVERFLOW
+    
 };
 
-void StackAssert(Stack *SomeStack, ErrorCode error, const char* FileName, const char *FuncName, const int ErrorLine);
-void PrintError(ON_DEBUG(Stack *SomeStack,) ErrorCode error, const char *FileName, const char *FuncName, const int LineCall);
-ErrorCode StackVerif(Stack *SomeStack);
+void StackAssert(Stack *Stack, ErrorCode error, const char* FileName, const char *FuncName, const int ErrorLine);
 
 #endif

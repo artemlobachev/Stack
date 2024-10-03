@@ -5,13 +5,10 @@
 #include <assert.h>
 #include "StackError.h"
 
+#define PRINT_ERROR(STACK, ERROR) PrintError(STACK, ERROR, __FILE__, __PRETTY_FUNCTION__, __LINE__)
+
 typedef double Stack_t;
 typedef int ErrorCode;
-
-const int POISON = 0xB00B5;
-const int STDCAPACITY = sizeof(Stack_t) * 64;
-const int ALLOCATION_COEF = 2;
-const int DECREASE_ALLOCATION_COEF = 4; 
 
 struct Stack
 {
@@ -21,13 +18,13 @@ struct Stack
 };
 
 enum HysteresisMode {decrease, increase};
-
+void PrintError(ON_DEBUG(Stack *Stack,) ErrorCode error, const char *FileName, const char *FuncName, const int LineCall);
+ErrorCode StackVerif(Stack *Stack);
 ErrorCode StackCtor(Stack *SomeStack, size_t capacity);
-
-ErrorCode StackPush(Stack *SomeStack, Stack_t element); //push elem into stack
-
-ErrorCode StackDump(Stack *SomeStack, const char *FileName, const char *FromFunc, const int LineCall); //all info
-
+ErrorCode StackPush(Stack *SomeStack, Stack_t element);
+static ErrorCode StackRealloc(Stack *SomeStack, int mode);
+static void FillPoison(Stack *SomeStack, size_t ElementsAfterAlloc, int mode);
+ErrorCode StackDump(Stack *SomeStack, const char *FileName, const char *FromFunc, const int LineCall);
 ErrorCode StackPop(Stack *SomeStack);
 ErrorCode StackDtor(Stack *SomeStack);
 

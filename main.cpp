@@ -7,15 +7,15 @@
 
 int main()
 {
-    Stack MyStack  = {0};
+    Stack Stack  = {0};
     size_t capacity = 64;
 
-    StackCtor(&MyStack, capacity);
-    StackPush(&MyStack, 10.0);
-    printf("MyStack[0] = %lf\n", MyStack.StackElements[0]);
-    StackPop(&MyStack);
-    printf("MyStack[0] = %lf\n", MyStack.StackElements[0]);
+    StackCtor(&Stack, capacity);
+    StackPush(&Stack, 10.0);
+    printf("Stack[0] = %lf\n", Stack.StackElements[0]);
+    StackPop(&Stack);
+    printf("Stack[0] = %lf\n", Stack.StackElements[0]);
 
-    StackDtor(&MyStack);
+    StackDtor(&Stack);
 }
 
