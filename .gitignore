@@ -1,0 +1,10 @@
+*.o
+*.a
+*.lib
+*.so
+*.exe
+*.out
+*.h.gch
+/build/
+*.dSYM
+*.gdb
