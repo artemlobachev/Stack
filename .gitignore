@@ -4,5 +4,6 @@
 *.gch
 *.out
 *.swp
+*.h.gch
 /build/
 ыфыф
