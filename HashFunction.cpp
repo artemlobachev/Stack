@@ -21,7 +21,7 @@ HashType MurMurHash3(const void *key, size_t len, uint64_t seed)
     HashType h = seed;
     HashType k;
 
-    for (size_t i = len >> 2; i; i--)
+    for (size_t i = len >> 2; i; i--) 
     {
         memcpy(&k, key, sizeof(HashType));
         key += sizeof(HashType);
@@ -35,7 +35,7 @@ HashType MurMurHash3(const void *key, size_t len, uint64_t seed)
     {
         k <<= 8;
         k |=  *(HashType *)(key + (i - 1));
-    }
+    }   
 
     h ^= MurMurScramble(k);
     h ^= len;
@@ -46,17 +46,4 @@ HashType MurMurHash3(const void *key, size_t len, uint64_t seed)
     h ^= h >> 16;
 
     return h;
-}
-
-int main()
-{
-    int array[8] = {10, 20, 10, 15, 45, 43, 321, 21};
-    HashType hash = MurMurHash3(array, sizeof(array), 52);
-    HashType a = MurMurHash3(array, sizeof(array), hash);
-
-    printf("Hash value: %llx\n", hash);
-    printf("Value at index 3: %d\n", array[3]);
-    printf("%d", a);
-
-    return 0;
 }

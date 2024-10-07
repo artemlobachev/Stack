@@ -5,11 +5,11 @@
 #include "StackError.h"
 #include "UsefulPrints.h"
 
-void StackAssert(Stack *Stack, ErrorCode error, const char *FileName, const char *FuncName, const int LineCall)
+void StackAssert(Stack *stk, ErrorCode error, const char *FileName, const char *FuncName, const int LineCall)
 {
     if (error)
     {
-        PrintError(Stack, error, FileName, FuncName, LineCall);
+        PrintError(stk, error, FileName, FuncName, LineCall);
         assert(0 && "tut krch code error");
-    }
+    }  
 }

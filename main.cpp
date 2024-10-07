@@ -7,15 +7,20 @@
 
 int main()
 {
-    Stack Stack  = {0};
-    size_t capacity = 64;
+    Stack stk = {}; 
+    size_t capacity = 3;
 
-    StackCtor(&Stack, capacity);
-    StackPush(&Stack, 10.0);
-    printf("Stack[0] = %lf\n", Stack.StackElements[0]);
-    StackPop(&Stack);
-    printf("Stack[0] = %lf\n", Stack.StackElements[0]);
+    StackCtor(&stk, capacity);
+    StackPush(&stk, 10.0);
+    StackPush(&stk, 10.0);
+    StackPush(&stk, 10.0);
+    StackPush(&stk, 10.0);
+    StackPush(&stk, 10.0);
+    StackPush(&stk, 10.0);
+    printf("Stack[0] = %lf\n", stk.StackElements[0]);
+    StackPop(&stk); 
+    printf("Stack[0] = %lf\n", stk.StackElements[6]);
 
-    StackDtor(&Stack);
+    StackDtor(&stk);
 }
 

@@ -1,207 +1,260 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h> 
-#include <malloc.h>
 #include <math.h>
 
 #include "stack.h"
-#include "StackError.h"
-#include "StackFunc.h"
+#include "CanaryProtection.h"
 #include "UseFulPrints.h"
+#include "HashFunction.h"
+#include "StackError.h"
 
 const int POISON = 0xB00B5;
-const int STDCAPACITY = sizeof(Stack_t) * 64;
+const int STDCAPACITY = 64;
 const int ALLOCATION_COEF = 2;
-const int DECREASE_ALLOCATION_COEF = 4; 
+const int MAX_ALLOCATION_COEF = 4; 
+const size_t MAX_CAPACITY = 1431655769 / sizeof(Stack_t); //CHECK
 
-ErrorCode StackCtor(Stack *Stack, size_t capacity)
+ErrorCode StackCtor(Stack *stk, size_t capacity)
 {    
-    STACK_ASSERT(Stack);
-    
-    Stack->capacity = (capacity > 0) ? capacity : STDCAPACITY;   //log
+    assert(stk);
 
-    Stack->StackElements = (Stack_t *) calloc(Stack->capacity, sizeof(Stack_t));
+    ON_CANARY 
+    (
+        stk->BOTTOM_CANARY = CANARY;
+        stk->TOP_CANARY = CANARY; 
+    ) 
 
-    if (Stack->StackElements == nullptr)
+    stk->capacity = ((int64_t)capacity > 0) ? capacity : STDCAPACITY;
+    stk->size = 0;
+    stk->StackElements = (Stack_t *) calloc(stk->capacity ON_CANARY(+2), sizeof(Stack_t)) ON_CANARY(+1);
+
+    if (stk->StackElements == nullptr)
     {
-        PRINT_ERROR(Stack, STACK_ELEMENTS_ALLOCATION_ERROR);
+        PRINT_ERROR(stk, STACK_ELEMENTS_ALLOCATION_ERROR);
         return STACK_ELEMENTS_ALLOCATION_ERROR;
     }
+    
+    ON_CANARY 
+    (
+        SetDataCanary(stk->StackElements, stk->capacity);
+        CHECK_CANARY(stk);
+    )
+
+    CHECK_STACK(stk);
 
     return ERROR_NOT_FOUND;
 }
 
-ErrorCode StackPush(Stack *Stack, Stack_t element)
-{   
-    STACK_ASSERT(Stack);
+static size_t GetReallocMemory(Stack *stk, int mode)
+{
+    if (mode == increase)
+        return (stk->capacity * sizeof(Stack_t)) * ALLOCATION_COEF;
 
-    if (Stack->size >= Stack->capacity)
+    if (mode == decrease && stk->size != 0)
     {
-        int ReallocError = StackRealloc(Stack, increase);
-        if (ReallocError)
-        {
-            PRINT_ERROR(Stack, ReallocError);
-            return ReallocError;
-        }
+        while(stk->capacity > stk->size * MAX_ALLOCATION_COEF)
+            stk->capacity /= ALLOCATION_COEF;
+        
+        return stk->capacity * sizeof(Stack_t);
     }
 
-    STACK_ASSERT(Stack);
+    return 0;
+}
 
-    Stack->StackElements[Stack->size] = element;
-    Stack->size++;
+ErrorCode StackPush(Stack *stk, Stack_t element)
+{   
+    STACK_ASSERT(stk);
+    ON_CANARY(CHECK_CANARY(stk);)
+ 
+    if (stk->size >= stk->capacity)
+    {
+        size_t AllocatedMemory = GetReallocMemory(stk, increase) ON_CANARY(+ 2 * sizeof(Stack_t));
+        int ReallocError = StackRealloc(stk, AllocatedMemory);
+        if (ReallocError)
+        {
+            PRINT_ERROR(stk, ReallocError);
+            return ReallocError;
+        }
+
+        ON_CANARY
+        (
+        SetDataCanary(stk->StackElements, stk->capacity);
+        CHECK_CANARY(stk);
+        )
+    }
+    CHECK_STACK(stk);
+
+    stk->StackElements[stk->size] = element;
+    stk->size++;
 
     return ERROR_NOT_FOUND;
 }
 
-ErrorCode StackDump(Stack *Stack, const char *FileName, const char *FromFunc, const int LineCall)
+ErrorCode StackDump(Stack *stk, const char *FileName, const char *FromFunc, const int LineCall)
 {
-    assert(Stack && FileName && FromFunc && LineCall > 0);
+    assert(stk && FileName && FromFunc && LineCall > 0);
 
     PRINT_STARS;
 
-    ON_DEBUG(puts("\t\tStack Dump");)
+    ON_DEBUG(COLOR_PRINTF(GREEN,"\t\tStack Dump\n");)
 
     printf("%s:  in function: %s line: %d\n", FileName, FromFunc, LineCall);
 
     ON_DEBUG
     (
-    printf("Stack adress: %p\n", Stack->StackElements);
-    printf("Stack size: %lu\n", Stack->size);
-    printf("Stack capacity: %lu\n", Stack->capacity);
+    printf("Stack adress: %#p\n", stk->StackElements);
+    printf("Stack size: %lu\n", stk->size);
+    printf("Stack capacity: %lu\n", stk->capacity);
     )
 
     PRINT_STARS;
 }
 
-ErrorCode StackPop(Stack *Stack)
+ErrorCode StackPop(Stack *stk)
 {   
-    STACK_ASSERT(Stack);
+    STACK_ASSERT(stk);
 
-    if (Stack->size == 0)
+    if (stk->size == 0)
     {
-        PRINT_ERROR(Stack, POP_EMPTY_STACK);    
+        PRINT_ERROR(stk, POP_EMPTY_STACK);    
         return POP_EMPTY_STACK;
     }
 
-    if (Stack->size <= Stack->capacity / DECREASE_ALLOCATION_COEF)
+    if (stk->size <= stk->capacity / MAX_ALLOCATION_COEF)
     {
-        int ReallocError = StackRealloc(Stack, decrease);
+        size_t AllocatedMemory = GetReallocMemory(stk, decrease);
+        int ReallocError = StackRealloc(stk, AllocatedMemory ON_CANARY(+ 2 * sizeof(Stack_t)));
         if (ReallocError)
         {
-            PRINT_ERROR(Stack, ReallocError);
+            PRINT_ERROR(stk, ReallocError);
             return ReallocError;
         }
+        ON_CANARY
+        (
+        SetDataCanary(stk->StackElements, stk->capacity);
+        CHECK_CANARY(stk);
+        )
     }
 
+    stk->size--;
+    stk->StackElements[stk->size] = POISON;
+
+    CHECK_STACK(stk);
+
     return ERROR_NOT_FOUND;
 }
 
-ErrorCode StackDtor(Stack *Stack)
+ErrorCode StackDtor(Stack *stk)
 {
-    assert(Stack);
+    STACK_ASSERT(stk);
+    CHECK_STACK(stk);
+    CHECK_CANARY(stk);
     
-    for (int i = 0; i < Stack->size; i++)
-        Stack->StackElements[Stack->size] = POISON;
+    for (int i = 0; i < stk->size; i++)
+        stk->StackElements[stk->size] = POISON;
 
-    free(Stack->StackElements);
-    Stack = {0};
-    Stack = nullptr;
+    free(stk->StackElements ON_CANARY(-1));
+    stk->StackElements = nullptr;
+    stk->capacity = POISON;
+    stk->size = POISON;
+    stk = nullptr;
 
     return ERROR_NOT_FOUND;
 }
 
-static ErrorCode StackRealloc(Stack *Stack, size_t AllocatedMemory, int mode)
+static ErrorCode StackRealloc(Stack *stk, size_t AllocatedMemory)
 {
-    assert(Stack);
+    STACK_ASSERT(stk);
   
-    Stack_t *ReallocSafePtr = (Stack_t *) realloc(Stack, AllocatedMemory);
+    Stack_t *ReallocSafePtr = (Stack_t *) realloc(stk->StackElements ON_CANARY(- 1), AllocatedMemory) ON_CANARY(+ 1);
+    
     while (ReallocSafePtr == nullptr)
     {
         AllocatedMemory /= ALLOCATION_COEF;
         if (AllocatedMemory == 0)
           return REALLOC_ERROR;
       
-        ReallocSafePtr = (Stack_t *) realloc(Stack, AllocatedMemory);
+        ReallocSafePtr = (Stack_t *) realloc(stk, AllocatedMemory);
     }
     
-    FillPoison(Stack, AllocatedMemory / sizeof(Stack_t), mode);
-    Stack->StackElements = ReallocSafePtr;
+    stk->StackElements = ReallocSafePtr ON_CANARY(+1);
+    stk->capacity = AllocatedMemory / sizeof(Stack_t);
 
     return ERROR_NOT_FOUND;
 }
 
-static void FillPoison(Stack *Stack, size_t ElementsAfterAlloc, int mode)
+void PrintError(Stack *stk, ErrorCode error, const char *FileName, const char *FuncName, const int LineCall)
 {
-    size_t ElementsBeforeAlloc = Stack->capacity;
+    ON_DEBUG(StackDump(stk, FileName, FuncName, LineCall);)
     
-    if (decrease)
-    {
-        for (int i = )
-
-    }     
-}
-
-void PrintError(ON_DEBUG(Stack *Stack,) ErrorCode error, const char *FileName, const char *FuncName, const int LineCall)
-{
     switch(error)
     {
+        case ERROR_NOT_FOUND:
+            ON_DEBUG(COLOR_PRINTF(GREEN, "ALL FINE!\n");)
+            return;
+
         case STACK_NULL_ADRESS:
-            COLOR_PRINTF(RED, "Stack in null address!");
-            StackDump(Stack, FileName, FuncName, LineCall);
-            abort();
+            COLOR_PRINTF(RED, "Stack in null address!\n");
+            break;
 
         case STACK_ELEMENTS_ALLOCATION_ERROR:
             COLOR_PRINTF(RED, "Memory for elements in stack wasn`t allocated\n");
-            StackDump(Stack, FileName, FuncName, LineCall);
-            abort();
+            break;
 
         case CAPACITY_BELOW_ZERO:
             COLOR_PRINTF(ORANGE, "Capacity is below zero! ");
-            COLOR_PRINTF(ORANGE, "For this situtation program allocated standart capacity");
-            StackDump(Stack, FileName, FuncName, LineCall);
-            abort();
+            COLOR_PRINTF(ORANGE, "For this situtation program allocated standart capacity\n");
+            break;
+
+        case SIZE_BELOW_ZERO:
+            COLOR_PRINTF(RED, "SIZE is below zero!");
+            break;
 
         case POP_EMPTY_STACK:
-            COLOR_PRINTF(ORANGE, "Pops element, but stack is empty(There is nothing to pop)");
-            StackDump(Stack, FileName, FuncName, LineCall);
-            abort();
+            COLOR_PRINTF(ORANGE, "Pops element, but stack is empty(There is nothing to pop)\n");
+            break;
 
         case REALLOC_ERROR:
             COLOR_PRINTF(RED, "Reallocation not work, because nothing to reallocate. ");
-            COLOR_PRINTF(RED, "Mo free memory in heap");
-            StackDump(Stack, FileName, FuncName, LineCall);
-            abort();
+            COLOR_PRINTF(RED, "No free memory in heap");
+            COLOR_PRINTF(RED, " or pointer in realloc not on allocated memory\n");
+            break;
 
         case STACK_ELEMENT_NULL_ADDRESS:
-            COLOR_PRINTF(RED, "Element in stack in null address!");
-            StackDump(Stack, FileName, FuncName, LineCall); 
-            abort();
-        
-        case CAPACITY_TOO_BIG:
-            COLOR_PRINTF(RED, "");
-            StackDump(Stack, FileName, FuncName, LineCall);
-            abort();
+            COLOR_PRINTF(RED, "Element in stack in null address!\n");
+            break;
 
-        default:
-            ON_DEBUG(COLOR_PRINTF(GREEN, "Error not found!");)
+        case CAPACITY_TOO_BIG:
+            COLOR_PRINTF(RED, "STACK SIZE REACHES LIMIT!!\n");
+            break;
     };
+
+    COLOR_PRINTF(RED, "ABORTED");
+    abort();
 }
 
-ErrorCode StackVerif(Stack *Stack)
+ErrorCode StackVerify(Stack *stk)
 {
-    if (Stack == nullptr)
+    if (stk == nullptr)
         return STACK_NULL_ADRESS;
 
-    if (Stack->StackElements)
-        return STACK_ELEMENT_NULL_ADDRESS;
-
-    if (Stack->capacity < 0)
+    if (stk->capacity < 0)
         return CAPACITY_BELOW_ZERO;
 
-    if (Stack->size > Stack->capacity)
+    if (stk->size < 0)
+        return SIZE_BELOW_ZERO;
+
+    if (&stk->StackElements[stk->size] == nullptr)
+        return STACK_ELEMENT_NULL_ADDRESS;
+
+    if (stk->size > stk->capacity)
         return SIZE_MORE_CAPACITY;
     
-    if (Stack->capacity == MAX_CAPACITY && Stack->size == MAX_CAPACITY)
+    if (stk->capacity > MAX_CAPACITY)
+            return CAPACITY_TOO_BIG;
+
+    if (stk->capacity == MAX_CAPACITY && stk->size >= MAX_CAPACITY)
         return STACK_OVERFLOW;
 
     return ERROR_NOT_FOUND;
