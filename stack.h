@@ -11,6 +11,7 @@
 typedef double Stack_t;
 typedef int ErrorCode;
 typedef uint64_t CanaryType;
+typedef uint64_t HashType;
  
 enum mode
 {
@@ -24,13 +25,18 @@ struct Stack
     CanaryType TOP_CANARY;
 #endif
 
+#ifndef HASH_PROTECTION
+    HashType DataHash;
+    HashType StackHash;
+#endif
+
     Stack_t *StackElements;
     size_t capacity;
     size_t size;
 
 #ifndef CANARY_PROTECTION
     CanaryType BOTTOM_CANARY;
-#endif
+#endif 
 };
 
 void PrintError(Stack *stk, ErrorCode error, const char *FileName, const char *FuncName, const int LineCall);
@@ -43,5 +49,6 @@ static size_t GetReallocMemory(Stack *stk, int mode);
 ErrorCode StackDump(Stack *stk, const char *FileName, const char *FromFunc, const int LineCall);
 ErrorCode StackPop(Stack *stk);
 ErrorCode StackDtor(Stack *stk);
+void GetStackElements(Stack stk);
 
 #endif

@@ -19,7 +19,7 @@ void CanaryDump(Stack *stk, const char *FileName, const char *FromFunc, const in
     printf("Bottom canary for stack stored at this address: %#p\n", stk->BOTTOM_CANARY);
     if (&stk->BOTTOM_CANARY) printf("Value at this address: %llu\n", stk->BOTTOM_CANARY);
     
-    printf("Top canary for stack stored at this address: %#p\n", &stk->TOP_CANARY);
+    printf("Top canary for stack stored at this address: %#p\n", &stk->TOP_CANARY);  
     if (&stk->TOP_CANARY) printf("Value at this address: %llu\n\n", stk->TOP_CANARY);
 
 /*                    CANARIES FOR DATA IS STACK                                   */

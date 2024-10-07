@@ -3,7 +3,7 @@
 
 #include "stack.h"
 
-#ifdef NDEBUG
+#ifdef DEBUG
     #define STACK_ASSERT(STACK) StackAssert(STACK, StackVerify(STACK), __FILE__, __PRETTY_FUNCTION__, __LINE__)
     #define STACK_DUMP(STACK) StackDump(STACK, __FILE__, __PRETTY_FUNCTION__, __LINE__)
     #define ON_DEBUG(...) __VA_ARGS__                                                    

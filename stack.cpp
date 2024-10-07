@@ -6,14 +6,15 @@
 #include "stack.h"
 #include "CanaryProtection.h"
 #include "UseFulPrints.h"
-#include "HashFunction.h"
+#include "HashProtection.h"
 #include "StackError.h"
 
 const int POISON = 0xB00B5;
 const int STDCAPACITY = 64;
 const int ALLOCATION_COEF = 2;
 const int MAX_ALLOCATION_COEF = 4; 
-const size_t MAX_CAPACITY = 1431655769 / sizeof(Stack_t); //CHECK
+const size_t MAX_CAPACITY = 1431655769 / sizeof(Stack_t);
+const size_t MAX_PRINT_ELEMENTS = 50;
 
 ErrorCode StackCtor(Stack *stk, size_t capacity)
 {    
@@ -25,7 +26,7 @@ ErrorCode StackCtor(Stack *stk, size_t capacity)
         stk->TOP_CANARY = CANARY; 
     ) 
 
-    stk->capacity = ((int64_t)capacity > 0) ? capacity : STDCAPACITY;
+    stk->capacity = (capacity > 0) ? capacity : STDCAPACITY;
     stk->size = 0;
     stk->StackElements = (Stack_t *) calloc(stk->capacity ON_CANARY(+2), sizeof(Stack_t)) ON_CANARY(+1);
 
@@ -40,7 +41,13 @@ ErrorCode StackCtor(Stack *stk, size_t capacity)
         SetDataCanary(stk->StackElements, stk->capacity);
         CHECK_CANARY(stk);
     )
-
+ 
+    ON_HASH
+    (
+        GetDataHash(stk, MurMurHash3);
+        GetStackHash(stk, MurMurHash3);
+    )
+ 
     CHECK_STACK(stk);
 
     return ERROR_NOT_FOUND;
@@ -76,7 +83,6 @@ ErrorCode StackPush(Stack *stk, Stack_t element)
             PRINT_ERROR(stk, ReallocError);
             return ReallocError;
         }
-
         ON_CANARY
         (
         SetDataCanary(stk->StackElements, stk->capacity);
@@ -87,6 +93,12 @@ ErrorCode StackPush(Stack *stk, Stack_t element)
 
     stk->StackElements[stk->size] = element;
     stk->size++;
+
+    ON_HASH
+    (
+        GetDataHash(stk, MurMurHash3);
+        GetStackHash(stk, MurMurHash3);
+    )
 
     return ERROR_NOT_FOUND;
 }
@@ -107,6 +119,14 @@ ErrorCode StackDump(Stack *stk, const char *FileName, const char *FromFunc, cons
     printf("Stack size: %lu\n", stk->size);
     printf("Stack capacity: %lu\n", stk->capacity);
     )
+
+    ON_HASH
+    (
+        printf("Hash for data in stack: %llx\n", stk->DataHash);
+        printf("Hash for stack: %llx\n", stk->StackHash);
+    )
+
+    if (stk->StackElements) GetStackElements(*stk);
 
     PRINT_STARS;
 }
@@ -140,6 +160,12 @@ ErrorCode StackPop(Stack *stk)
     stk->size--;
     stk->StackElements[stk->size] = POISON;
 
+    ON_HASH
+    (
+        GetDataHash(stk, MurMurHash3);
+        GetStackHash(stk, MurMurHash3);
+    )
+
     CHECK_STACK(stk);
 
     return ERROR_NOT_FOUND;
@@ -153,11 +179,18 @@ ErrorCode StackDtor(Stack *stk)
     
     for (int i = 0; i < stk->size; i++)
         stk->StackElements[stk->size] = POISON;
-
+    
     free(stk->StackElements ON_CANARY(-1));
     stk->StackElements = nullptr;
     stk->capacity = POISON;
     stk->size = POISON;
+
+    ON_HASH
+    (
+        stk->DataHash = POISON;
+        stk->StackHash = POISON;
+    )
+
     stk = nullptr;
 
     return ERROR_NOT_FOUND;
@@ -166,20 +199,23 @@ ErrorCode StackDtor(Stack *stk)
 static ErrorCode StackRealloc(Stack *stk, size_t AllocatedMemory)
 {
     STACK_ASSERT(stk);
+    CHECK_STACK(stk);
   
     Stack_t *ReallocSafePtr = (Stack_t *) realloc(stk->StackElements ON_CANARY(- 1), AllocatedMemory) ON_CANARY(+ 1);
-    
+
     while (ReallocSafePtr == nullptr)
     {
         AllocatedMemory /= ALLOCATION_COEF;
-        if (AllocatedMemory == 0)
+        if (AllocatedMemory == 0) 
           return REALLOC_ERROR;
       
         ReallocSafePtr = (Stack_t *) realloc(stk, AllocatedMemory);
     }
-    
-    stk->StackElements = ReallocSafePtr ON_CANARY(+1);
-    stk->capacity = AllocatedMemory / sizeof(Stack_t);
+  
+    stk->StackElements = ReallocSafePtr;
+    stk->capacity = (AllocatedMemory ON_CANARY(- 2 * sizeof(Stack_t))) / sizeof(Stack_t);
+
+    CHECK_STACK(stk);
 
     return ERROR_NOT_FOUND;
 }
@@ -226,11 +262,12 @@ void PrintError(Stack *stk, ErrorCode error, const char *FileName, const char *F
             break;
 
         case CAPACITY_TOO_BIG:
-            COLOR_PRINTF(RED, "STACK SIZE REACHES LIMIT!!\n");
+            COLOR_PRINTF(RED, "STACK CAPACITY TOO BIG!!\n");
+            COLOR_PRINTF(RED, "CAN`T ALLOCATE SO MUCH MEMORY!!\n");
             break;
     };
 
-    COLOR_PRINTF(RED, "ABORTED");
+    COLOR_PRINTF(RED, "ABORTED\n");
     abort();
 }
 
@@ -258,4 +295,12 @@ ErrorCode StackVerify(Stack *stk)
         return STACK_OVERFLOW;
 
     return ERROR_NOT_FOUND;
+}
+
+void GetStackElements(Stack stk)
+{
+    size_t elements = (stk.size < MAX_PRINT_ELEMENTS) ? stk.size : 50;
+    
+    for (size_t i = 0; i < elements; i++)
+        printf("stack[%d] = %lf\n", i, stk.StackElements[i]);   
 }

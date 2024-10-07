@@ -11,5 +11,5 @@ void StackAssert(Stack *stk, ErrorCode error, const char *FileName, const char *
     {
         PrintError(stk, error, FileName, FuncName, LineCall);
         assert(0 && "tut krch code error");
-    }  
+    }   
 }
