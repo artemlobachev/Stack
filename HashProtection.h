@@ -8,6 +8,7 @@
 
 #ifndef HASH_PROTECTION
     #define ON_HASH(...) __VA_ARGS__
+    #define IS_HASH_CHANGED(STACK, HASH_FUNC) (IsDataHashChange(STACK, HASH_FUNC) || IsStackHashChange(STACK, HASH_FUNC))
 #else 
     #define ON_HASH(...)
 #endif 
@@ -19,5 +20,8 @@ static inline HashType MurMurScramble(HashType k);
 
 void GetDataHash(Stack *stk, HashType (*HashFunction) (const void *StackElements, size_t len, HashType seed));
 void GetStackHash(Stack *stk, HashType (*HashFunction) (const void *Stack, size_t len, HashType seed));
+
+HashType IsDataHashChange(Stack *stk, HashType (*HashFunction) (const void *StackElements, size_t len, HashType seed));
+HashType IsStackHashChange(Stack *stk, HashType (*HashFunction) (const void *Stack, size_t len, HashType seed));
 
 #endif

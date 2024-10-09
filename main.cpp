@@ -22,7 +22,7 @@ int main()
     StackPop(&stk);
 
 
-    GetStackElements(stk);
+    GetStackElements(&stk);
 
     StackDtor(&stk);
 } 

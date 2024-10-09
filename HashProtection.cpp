@@ -49,6 +49,17 @@ HashType MurMurHash3(const void *key, size_t len, HashType seed)
     return h; 
 } 
 
+HashType IsDataHashChange(Stack *stk, HashType (*HashFunction) (const void *StackElements, size_t len, HashType seed))
+{
+    printf("%#x %#x ", stk->DataHash, HashFunction((const void*)stk->StackElements, stk->capacity, 0));
+    return (stk->DataHash != HashFunction((const void*)stk->StackElements, stk->capacity, 0));
+}  
+
+HashType IsStackHashChange(Stack *stk, HashType (*HashFunction) (const void *Stack, size_t len, HashType seed))
+{
+    return (stk->StackHash != HashFunction((const void*)stk, 1, 0));
+}
+
 void GetDataHash(Stack *stk, HashType (*HashFunction) (const void *StackElements, size_t len, HashType seed))
 {
     stk->DataHash = HashFunction((const void*)stk->StackElements, stk->capacity, 0);

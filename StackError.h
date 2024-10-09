@@ -2,6 +2,8 @@
 #define STACK_ERROR_H
 
 #include "stack.h"
+#include "CanaryProtection.h"
+#include "HashProtection.h"
 
 #ifdef DEBUG
     #define STACK_ASSERT(STACK) StackAssert(STACK, StackVerify(STACK), __FILE__, __PRETTY_FUNCTION__, __LINE__)
@@ -26,10 +28,23 @@ enum Errors
     CAPACITY_TOO_BIG,
     STACK_OVERFLOW,
     SIZE_BELOW_ZERO
+    
+    ON_CANARY
+    (
+    ,CHANGE_CANARY,
+    SAME_ADRESS,
+    CANARY_IN_NULL
+    
+    )
+
+    ON_HASH
+    (
+
+    ,HASH_CHANGED    
+    
+    )
 };
 
 static_assert(ERROR_NOT_FOUND == 0, "Something Wrong!");
-
-void StackAssert(Stack *stk, ErrorCode error, const char* FileName, const char *FuncName, const int ErrorLine);
 
 #endif

@@ -49,6 +49,6 @@ static size_t GetReallocMemory(Stack *stk, int mode);
 ErrorCode StackDump(Stack *stk, const char *FileName, const char *FromFunc, const int LineCall);
 ErrorCode StackPop(Stack *stk);
 ErrorCode StackDtor(Stack *stk);
-void GetStackElements(Stack stk);
+void GetStackElements(Stack *stk);
 
 #endif

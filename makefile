@@ -9,8 +9,8 @@ main.o: main.cpp
 stack.o: stack.cpp stack.h
 	g++ -c stack.cpp stack.h
 
-StackError.o: StackError.cpp StackError.h
-	g++ -c StackError.cpp StackError.h
+StackError.o: StackError.h
+	g++ StackError.h
 
 HashProtection.o: HashProtection.cpp HashProtection.h
 	g++ -c HashProtection.cpp HashProtection.h

@@ -15,14 +15,14 @@ void CanaryDump(Stack *stk, const char *FileName, const char *FromFunc, const in
 
     printf("%s:  in function: %s line: %d\n", FileName, FromFunc, LineCall);
 
-/*                    CANARIES FOR STACK                                           */
+/*                    CANARIES FOR STACK                                       */
     printf("Bottom canary for stack stored at this address: %#p\n", stk->BOTTOM_CANARY);
     if (&stk->BOTTOM_CANARY) printf("Value at this address: %llu\n", stk->BOTTOM_CANARY);
     
     printf("Top canary for stack stored at this address: %#p\n", &stk->TOP_CANARY);  
     if (&stk->TOP_CANARY) printf("Value at this address: %llu\n\n", stk->TOP_CANARY);
 
-/*                    CANARIES FOR DATA IS STACK                                   */
+/*                    CANARIES FOR DATA IS STACK                                */
     printf("Bottom canary for data in stack stored at this address: %#p\n", BottomDataCanary);
     if (BottomDataCanary) printf("Value at this address: %llu\n", *BottomDataCanary);
 
@@ -34,8 +34,9 @@ void CanaryDump(Stack *stk, const char *FileName, const char *FromFunc, const in
 
 void CanaryAbort(Stack *stk, int CanaryError, const char *FileName, const char *FromFunc, const int LineCall)
 { 
+    
     CanaryDump(stk, FileName, FromFunc, LineCall);
-    STACK_DUMP(stk);
+    StackDump(stk, FileName, FromFunc, LineCall);
     
     switch(CanaryError)
     { 
@@ -96,7 +97,6 @@ void SetDataCanary(Stack_t *StackElements, size_t capacity)
     
     CanaryType BottomDataCanary = CANARY;
     CanaryType TopDataCanary = CANARY;         
-
 
     *(CanaryType *)((char *) StackElements - sizeof(CanaryType)) = TopDataCanary; 
     *(CanaryType *)(StackElements + capacity) = BottomDataCanary;
