@@ -12,6 +12,7 @@ int main()
 
     StackCtor(&stk, capacity);
     StackPush(&stk, 10.0);
+    stk.capacity = 0;
     StackPush(&stk, 10.0);
     StackPush(&stk, 10.0);
     StackPush(&stk, 10.0);

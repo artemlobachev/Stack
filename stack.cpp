@@ -4,10 +4,7 @@
 #include <math.h>
 
 #include "stack.h"
-#include "CanaryProtection.h"
 #include "UseFulPrints.h"
-#include "HashProtection.h"
-#include "StackError.h"
 
 /*        CONSTS              */
 const int POISON = 0xB00B5;
@@ -20,6 +17,48 @@ const size_t STDOUT_ELEMENTS = 50;
 const size_t MEMORY_FOR_CANARIES = sizeof(Stack_t) * 2;
 
 /*--------------------------------------------------------------------------------------------------------------------------------------------*/
+
+ON_CANARY
+(
+    const CanaryType CANARY = 0xCAEFF64;
+
+    static void SetDataCanary(Stack_t *StackElements, size_t capacity)
+    {
+        assert(StackElements);
+        
+        CanaryType BottomDataCanary = CANARY;
+        CanaryType TopDataCanary = CANARY;         
+
+        *(CanaryType *)((char *) StackElements - sizeof(CanaryType)) = TopDataCanary; 
+        *(CanaryType *)(StackElements + capacity) = BottomDataCanary;
+    }
+
+)
+
+ON_HASH
+(
+    static HashType IsDataHashChange(Stack *stk, HashType (*HashFunction) (const void *StackElements, size_t len, HashType seed))
+{
+    return (stk->DataHash != HashFunction((const void*)stk->StackElements, stk->capacity, 0));
+}  
+
+    static  HashType IsStackHashChange(Stack *stk, HashType (*HashFunction) (const void *Stack, size_t len, HashType seed))
+{
+    return (stk->StackHash != HashFunction((const void*)stk, 1, 0));
+}
+
+    static void GetDataHash(Stack *stk, HashType (*HashFunction) (const void *StackElements, size_t len, HashType seed))
+{
+    stk->DataHash = HashFunction((const void*)stk->StackElements, stk->capacity, 0);
+}
+
+    static void GetStackHash(Stack *stk, HashType (*HashFunction) (const void *Stack, size_t len, HashType seed))
+{
+    stk->StackHash = HashFunction((const void*)stk, 1, 0);
+}
+
+)
+
 
 /*          STATIC FUNCTIONS            */
 static size_t GetReallocMemory(Stack *stk, int mode)
@@ -40,14 +79,10 @@ static size_t GetReallocMemory(Stack *stk, int mode)
 
 static ErrorCode StackRealloc(Stack *stk, size_t AllocatedMemory)
 {
-    STACK_ASSERT(stk);
     CHECK_STACK(stk);
-    ON_CANARY(CHECK_CANARY(stk);)
 
-/*For stack data safety. Realloc can return nullptr*/
     Stack_t *ReallocSafePtr = (Stack_t *) realloc(stk->StackElements ON_CANARY(- 1), AllocatedMemory) ON_CANARY(+ 1);
 
-/*If AllocatedMemory too big and system can`t allocate so much memory*/
     while (ReallocSafePtr == nullptr)
     {
         AllocatedMemory /= ALLOCATION_COEF;
@@ -107,7 +142,6 @@ ErrorCode StackCtor(Stack *stk, size_t capacity)
     (
     
     SetDataCanary(stk->StackElements, stk->capacity);
-    CHECK_CANARY(stk);
     
     )
  
@@ -127,8 +161,6 @@ ErrorCode StackCtor(Stack *stk, size_t capacity)
 ErrorCode StackDtor(Stack *stk)
 {
     CHECK_STACK(stk);
-    ON_CANARY(CHECK_CANARY(stk);)
-
     
     for (int i = 0; i < stk->size; i++)
         stk->StackElements[stk->size] = POISON;
@@ -157,8 +189,7 @@ ErrorCode StackDtor(Stack *stk)
 /*             Stack functions:                    */
 ErrorCode StackPush(Stack *stk, Stack_t element)
 {   
-    STACK_ASSERT(stk);
-    ON_CANARY(CHECK_CANARY(stk);)
+    CHECK_STACK(stk);
  
     if (stk->size >= stk->capacity)
     {
@@ -174,11 +205,11 @@ ErrorCode StackPush(Stack *stk, Stack_t element)
         (
 
         SetDataCanary(stk->StackElements, stk->capacity);
-        CHECK_CANARY(stk);
         
         )
+
+        CHECK_STACK(stk);
     }
-    CHECK_STACK(stk);
 
     stk->StackElements[stk->size] = element;
     stk->size++;
@@ -191,12 +222,14 @@ ErrorCode StackPush(Stack *stk, Stack_t element)
 
     )
 
+    CHECK_STACK(stk);
+
     return ERROR_NOT_FOUND;
 }
 
 ErrorCode StackPop(Stack *stk)
 {   
-    STACK_ASSERT(stk);
+    CHECK_STACK(stk);
 
     if (stk->size == 0)
     {
@@ -217,10 +250,12 @@ ErrorCode StackPop(Stack *stk)
         (
 
         SetDataCanary(stk->StackElements, stk->capacity);
-        CHECK_CANARY(stk);
         
         )
+
+        CHECK_STACK(stk);
     }
+
 
     stk->size--;
     stk->StackElements[stk->size] = POISON;
@@ -260,6 +295,26 @@ ErrorCode StackDump(Stack *stk, const char *FileName, const char *FromFunc, cons
     
     )
 
+    ON_CANARY
+    (
+
+    CanaryType *TopDataCanary = (CanaryType *) ((char *) stk->StackElements - sizeof(CanaryType));
+    CanaryType *BottomDataCanary = (CanaryType *) (stk->StackElements + stk->capacity);
+
+    printf("Bottom canary for stack stored at this address: %#p\n", stk->BOTTOM_CANARY);
+    if (&stk->BOTTOM_CANARY) printf("Value at this address: %llu\n\n", stk->BOTTOM_CANARY);
+    
+    printf("Top canary for stack stored at this address: %#p\n", &stk->TOP_CANARY);  
+    if (&stk->TOP_CANARY) printf("Value at this address: %llu\n\n", stk->TOP_CANARY);
+
+    printf("Bottom canary for data in stack stored at this address: %#p\n", BottomDataCanary);
+    if (BottomDataCanary) printf("Value at this address: %llu\n\n", *BottomDataCanary);
+
+    printf("Top canary for data in stack stored at this address: %#p\n", TopDataCanary);
+    if (TopDataCanary) printf("Value at thus address: %llu\n\n", *TopDataCanary);
+
+    )
+
     ON_HASH
     (
     
@@ -268,14 +323,32 @@ ErrorCode StackDump(Stack *stk, const char *FileName, const char *FromFunc, cons
     
     )
 
-    ON_DEBUG(if (stk->StackElements) GetStackElements(*stk);)
-
     PRINT_STARS;
 }
 
 
 ErrorCode StackVerify(Stack *stk)
 {   
+    ON_DEBUG
+    (
+
+    if (stk->capacity > MAX_CAPACITY)
+        return CAPACITY_TOO_BIG;
+
+    if (stk->capacity == 0)
+        return CAPACITY_IS_ZERO;
+
+    if ((int64_t)stk->capacity < 0)
+        return CAPACITY_BELOW_ZERO;
+
+    )
+
+    if (stk->capacity > MAX_CAPACITY || stk->capacity == 0 || (int64_t)stk->capacity < 0)
+    {
+        stk->capacity = STDCAPACITY;
+        return ERROR_NOT_FOUND;
+    }
+    
     if (stk == nullptr)
         return STACK_NULL_ADRESS;
 
@@ -291,16 +364,19 @@ ErrorCode StackVerify(Stack *stk)
     if (stk->capacity == MAX_CAPACITY && stk->size >= MAX_CAPACITY)
         return STACK_OVERFLOW;
 
-    ON_DEBUG
+    ON_CANARY
     (
 
-    if (stk->capacity > MAX_CAPACITY)
-        return CAPACITY_TOO_BIG;
+    if (&stk->TOP_CANARY == NULL || &stk->BOTTOM_CANARY == NULL)
+        return CANARY_IN_NULL;
+    
+    if (stk->TOP_CANARY != CANARY || stk->BOTTOM_CANARY != CANARY)       
+        return CHANGE_CANARY;
 
-    if (stk->capacity < 0)
-        return CAPACITY_BELOW_ZERO;
+    if (&stk->TOP_CANARY == &stk->BOTTOM_CANARY)
+        return SAME_CANARY_ADRESS;
 
-    )
+    )   
 
     ON_HASH
     (
@@ -319,6 +395,25 @@ void PrintError(Stack *stk, ErrorCode error, const char *FileName, const char *F
     
     switch(error)
     {
+        ON_DEBUG
+        (
+
+        case CAPACITY_TOO_BIG:
+            COLOR_PRINTF(RED, "STACK CAPACITY TOO BIG!!\n");
+            COLOR_PRINTF(RED, "CAN`T ALLOCATE SO MUCH MEMORY!!\n");
+            break;
+
+        case CAPACITY_IS_ZERO:
+            COLOR_PRINTF(RED, "CAPACITY IS ZERO!!");
+            break;
+
+        case CAPACITY_BELOW_ZERO:
+            COLOR_PRINTF(ORANGE, "Capacity is below zero! ");
+            COLOR_PRINTF(ORANGE, "For this situtation program allocated standart capacity\n");
+            break;
+
+        )
+        
         case ERROR_NOT_FOUND:
             ON_DEBUG(COLOR_PRINTF(GREEN, "ALL FINE!\n");)
             return;
@@ -331,11 +426,6 @@ void PrintError(Stack *stk, ErrorCode error, const char *FileName, const char *F
             COLOR_PRINTF(RED, "Memory for elements in stack wasn`t allocated\n");
             break;
 
-        case CAPACITY_BELOW_ZERO:
-            COLOR_PRINTF(ORANGE, "Capacity is below zero! ");
-            COLOR_PRINTF(ORANGE, "For this situtation program allocated standart capacity\n");
-            break;
-
         case SIZE_BELOW_ZERO:
             COLOR_PRINTF(RED, "SIZE is below zero!");
             break;
@@ -344,24 +434,42 @@ void PrintError(Stack *stk, ErrorCode error, const char *FileName, const char *F
             COLOR_PRINTF(ORANGE, "Pops element, but stack is empty(There is nothing to pop)\n");
             break;
 
+        case STACK_ELEMENT_NULL_ADDRESS:
+            COLOR_PRINTF(RED, "Element in stack in null address!\n");
+            break;
+
         case REALLOC_ERROR:
             COLOR_PRINTF(RED, "Reallocation not work, because nothing to reallocate. ");
             COLOR_PRINTF(RED, "No free memory in heap");
             COLOR_PRINTF(RED, " or pointer in realloc not on allocated memory\n");
             break;
+        
+        ON_CANARY
+        (
 
-        case STACK_ELEMENT_NULL_ADDRESS:
-            COLOR_PRINTF(RED, "Element in stack in null address!\n");
+        case CANARY_IN_NULL:
+            COLOR_PRINTF(RED, "CANARY POINTED IN NULL ADRESS\n");
             break;
 
-        case CAPACITY_TOO_BIG:
-            COLOR_PRINTF(RED, "STACK CAPACITY TOO BIG!!\n");
-            COLOR_PRINTF(RED, "CAN`T ALLOCATE SO MUCH MEMORY!!\n");
+        case CHANGE_CANARY:                          
+            COLOR_PRINTF(RED, "TRY OVERFLOW BUFFER!\n");                                                                         
             break;
+
+        case SAME_CANARY_ADRESS:                                                
+            COLOR_PRINTF(RED, "CANARY HAVE SAME ADRESS ");                     
+            COLOR_PRINTF(RED, "MAYBE CANARY-ADRESS WAS CHANGED\n");             
+            break;
+
+        )
+        
+        ON_HASH
+        (
         
         case HASH_CHANGED:
             COLOR_PRINTF(RED, "HASH WAS CHANGED!\n");
             break;
+        
+        )
     };
 
     COLOR_PRINTF(RED, "ABORTED\n");
@@ -371,7 +479,6 @@ void PrintError(Stack *stk, ErrorCode error, const char *FileName, const char *F
 void GetStackElements(Stack *stk)
 {   
     CHECK_STACK(stk);
-    ON_CANARY(CHECK_CANARY(stk);)
     
     size_t elements = (stk->size < MAX_PRINT_ELEMENTS) ? stk->size : STDOUT_ELEMENTS;
 
